@@ -1,8 +1,3 @@
-"""
-Naukri job scraper.
-Primary: Apify community actor (pratikdholakiya/naukri-jobs-scraper)
-Fallback: Naukri public JSON API (no auth required for basic searches)
-"""
 import logging
 import urllib.parse
 import urllib.request
@@ -12,7 +7,7 @@ from config import APIFY_API_KEY, KEYWORDS, LOCATIONS_NAUKRI
 
 logger = logging.getLogger(__name__)
 
-ACTOR_ID = "pratikdholakiya/naukri-jobs-scraper"
+ACTOR_ID = "bebity/naukri-jobs-scraper"
 
 NAUKRI_API_URL = "https://www.naukri.com/jobapi/v3/search"
 NAUKRI_HEADERS = {
@@ -23,12 +18,13 @@ NAUKRI_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept": "application/json",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.naukri.com/",
 }
 
 
 def scrape(max_results_per_keyword: int = 20) -> list[dict]:
-    """Try Apify actor first; fall back to direct Naukri API on failure."""
     jobs = _scrape_via_apify(max_results_per_keyword)
     if not jobs:
         logger.info("[Naukri] Apify returned 0 results — trying direct API fallback")
@@ -36,8 +32,6 @@ def scrape(max_results_per_keyword: int = 20) -> list[dict]:
     logger.info(f"[Naukri] Total raw results: {len(jobs)}")
     return jobs
 
-
-# ── Apify path ────────────────────────────────────────────────────────────────
 
 def _scrape_via_apify(max_results_per_keyword: int) -> list[dict]:
     client = ApifyClient(APIFY_API_KEY)
@@ -50,7 +44,7 @@ def _scrape_via_apify(max_results_per_keyword: int) -> list[dict]:
                     run_input={
                         "keyword": keyword,
                         "location": location,
-                        "freshness": "1",  # last 24 hours
+                        "freshness": "1",
                         "maxItems": max_results_per_keyword,
                     },
                     timeout_secs=120,
@@ -91,11 +85,9 @@ def _normalize_apify(item: dict) -> dict | None:
     }
 
 
-# ── Direct API fallback ───────────────────────────────────────────────────────
-
 def _scrape_via_direct_api(max_results_per_keyword: int) -> list[dict]:
     jobs = []
-    for keyword in KEYWORDS[:5]:  # limit to top 5 keywords for fallback
+    for keyword in KEYWORDS[:5]:
         for location in LOCATIONS_NAUKRI:
             try:
                 params = urllib.parse.urlencode({

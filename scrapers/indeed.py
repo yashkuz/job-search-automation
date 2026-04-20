@@ -1,8 +1,5 @@
-"""
-Indeed job scraper using Apify actor: misceres/indeed-scraper
-Returns jobs posted in the last 24 hours matching Supply Chain / Operations keywords.
-"""
 import logging
+import re
 from apify_client import ApifyClient
 from config import APIFY_API_KEY, KEYWORDS, LOCATIONS_INDEED
 
@@ -49,6 +46,20 @@ def scrape(max_results_per_keyword: int = 20) -> list[dict]:
     return jobs
 
 
+def _is_recent(posted_at: str) -> bool:
+    if not posted_at:
+        return True
+    p = posted_at.lower()
+    if any(x in p for x in ("just posted", "today", "1 day")):
+        return True
+    match = re.search(r'(\d+)\s*day', p)
+    if match and int(match.group(1)) > 1:
+        return False
+    if any(x in p for x in ("week", "month", "year")):
+        return False
+    return True
+
+
 def _normalize(item: dict) -> dict | None:
     title = item.get("positionName") or item.get("title") or ""
     company = item.get("company") or ""
@@ -58,6 +69,9 @@ def _normalize(item: dict) -> dict | None:
     posted_at = item.get("postedAt") or item.get("postingDate") or ""
 
     if not title or not url:
+        return None
+
+    if not _is_recent(posted_at):
         return None
 
     loc_lower = location.lower()
